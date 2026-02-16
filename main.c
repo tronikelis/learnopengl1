@@ -12,28 +12,25 @@
 const char* vertexShaderSource =
     "#version 330 core\n"
     "layout (location = 0) in vec3 inPosition;\n"
-    "layout (location = 1) in vec3 inColor;\n"
-    "layout (location = 2) in vec2 inTextureCoordinates;\n"
-    "out vec3 outColor;\n"
+    "layout (location = 1) in vec2 inTextureCoordinates;\n"
     "out vec2 outTextureCoordinates;\n"
-    "uniform mat4 transform;\n"
+    "uniform mat4 model;\n"
+    "uniform mat4 view;\n"
+    "uniform mat4 projection;\n"
     "void main()\n"
     "{\n"
-    "   gl_Position = transform * vec4(inPosition, 1.0);\n"
-    "   outColor = inColor;\n"
+    "   gl_Position = projection * view * model * vec4(inPosition, 1.0);\n"
     "   outTextureCoordinates = inTextureCoordinates;\n"
     "}\n";
 
 const char* fragmentShaderSource =
     "#version 330 core\n"
     "out vec4 fragColor;\n"
-    "in vec3 outColor;\n"
     "in vec2 outTextureCoordinates;\n"
     "uniform sampler2D ourTexture;\n"
     "void main()\n"
     "{\n"
-    "    fragColor = texture(ourTexture, outTextureCoordinates) * "
-    "vec4(outColor, 1.0);\n"
+    "    fragColor = texture(ourTexture, outTextureCoordinates);\n"
     "}\n";
 
 static void frameBufferSizeCallback(GLFWwindow* window, int width, int height) {
@@ -81,10 +78,7 @@ int main() {
     GLFWwindow* glwindow = initGlfwWindow(1280, 720, "hello world");
     glfwSetFramebufferSizeCallback(glwindow, frameBufferSizeCallback);
 
-    mat4 idenMat4 = GLM_MAT4_IDENTITY_INIT;
-    // glm_scale(idenMat4, (vec3){2, 2, 2});
-    // glm_translate(idenMat4, (vec3){0.1, 0.1, 0});
-    glm_rotate(idenMat4, glm_rad(90), (vec3){0, 0, 1});
+    glEnable(GL_DEPTH_TEST);
 
     int imageWidth, imageHeight, nrChannels;
     unsigned char* imageData = stbi_load("resources/container.jpg", &imageWidth,
@@ -111,10 +105,47 @@ int main() {
 
     // clang-format off
     float vertices[] = {
-        // positions         // colors
-        0.5,  -0.5, 0.0,      1.0, 0.0, 0.0,  1.0, 0.0,  // bottom right
-        -0.5, -0.5, 0.0,       0.0, 1.0, 0.0,   0.0, 0.0, // bottom left
-        0.0,  0.5,  0.0,         0.0, 0.0, 1.0,   0.5, 1, // top
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
     };
     // clang-format on
 
@@ -164,39 +195,70 @@ int main() {
                           3,                 // count
                           GL_FLOAT,          // type
                           GL_FALSE,          // normalize to [-1, 1]
-                          8 * sizeof(float), // stride (bytes to go to next)
+                          5 * sizeof(float), // stride (bytes to go to next)
                           (void*)0);         // offset
     glEnableVertexAttribArray(0);
 
-    // color
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
+    // texture coordinates
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
                           (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-
-    // texture coordinates
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float),
-                          (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
 
     // unbinding
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    vec3 cubes[] = {
+        {0.0f, 0.0f, 0.0f},     {2.0f, 5.0f, -15.0f}, {-1.5f, -2.2f, -2.5f},
+        {-3.8f, -2.0f, -12.3f}, {2.4f, -0.4f, -3.5f}, {-1.7f, 3.0f, -7.5f},
+        {1.3f, -2.0f, -2.5f},   {1.5f, 2.0f, -2.5f},  {1.5f, 0.2f, -1.5f},
+        {-1.3f, 1.0f, -1.5f},
+    };
+
+    float pos = -3;
     while (!glfwWindowShouldClose(glwindow)) {
         glfwPollEvents();
         processInput(glwindow);
 
+        if (glfwGetKey(glwindow, GLFW_KEY_W) == GLFW_PRESS) {
+            pos += 0.1;
+        }
+        if (glfwGetKey(glwindow, GLFW_KEY_S) == GLFW_PRESS) {
+            pos += -0.1;
+        }
+
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm_rotate(idenMat4, glm_rad(1), (vec3){0, 1, 1});
-        glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "transform"), 1,
-                           false, idenMat4[0]);
+        GLint viewport[4];
+        glGetIntegerv(GL_VIEWPORT, viewport);
 
-        // bind our triangle
-        glBindVertexArray(vao);
-        // draw the triangle
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        for (int i = 0; i < 10; i++) {
+            // bind our triangle
+            glBindVertexArray(vao);
+
+            mat4 modelMatrix;
+            glm_translate_make(modelMatrix, cubes[i]);
+            glm_rotate(modelMatrix, glm_rad(-70 * (i + 1)) * glfwGetTime(),
+                       (vec3){1, 0.5, 0});
+            mat4 viewMatrix;
+            glm_translate_make(viewMatrix, (vec3){0, 0, pos});
+            mat4 projectionMatrix;
+            glm_perspective(glm_rad(60),
+                            (float)viewport[2] / (float)viewport[3], 0.1, 100,
+                            projectionMatrix);
+
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1,
+                               false, modelMatrix[0]);
+            glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1,
+                               false, viewMatrix[0]);
+            glUniformMatrix4fv(
+                glGetUniformLocation(shaderProgram, "projection"), 1, false,
+                projectionMatrix[0]);
+
+            // draw the triangle
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
         glfwSwapBuffers(glwindow);
     }
