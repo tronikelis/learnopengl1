@@ -160,8 +160,50 @@ fn main() {
         glm::vec3(-1.3_f32, 1.0, -1.5),
     ];
 
+    let mut camera_pos = glm::vec3::<f32>(0.0, 0.0, 3.0);
+    let camera_front = glm::vec3::<f32>(0.0, 0.0, -1.0);
+    let camera_up = glm::vec3::<f32>(0.0, 1.0, 0.0);
+
+    let yaw: f32 = -90.0;
+    let pitch: f32 = 0.0;
+
+    let direction = glm::vec3::<f32>(radians(yaw).cos(), radians(yaw).sin(), radians(pitch).sin());
+
+    let mut last_frame: f32 = 0.0;
+    let mut delta_time: f32 = 0.0;
+
     while !window.should_close() {
+        let current_time = glfw_init.get_time() as f32;
+        delta_time = current_time - last_frame;
+        last_frame = current_time;
+
+        let camera_speed: f32 = 10.0 * delta_time;
+
         glfw_init.poll_events();
+        match window.get_key(Key::E) {
+            Action::Press => {
+                camera_pos += camera_front * camera_speed;
+            }
+            _ => {}
+        }
+        match window.get_key(Key::D) {
+            Action::Press => {
+                camera_pos -= camera_front * camera_speed;
+            }
+            _ => {}
+        }
+        match window.get_key(Key::F) {
+            Action::Press => {
+                camera_pos += -camera_up.cross(&camera_front).normalize() * camera_speed;
+            }
+            _ => {}
+        }
+        match window.get_key(Key::S) {
+            Action::Press => {
+                camera_pos -= -camera_up.cross(&camera_front).normalize() * camera_speed;
+            }
+            _ => {}
+        }
         for (_, event) in glfw::flush_messages(&events) {
             match event {
                 glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
@@ -176,20 +218,20 @@ fn main() {
         opengl::gl_clear_color(0.2, 0.3, 0.3, 1.0);
         opengl::gl_clear(opengl::ffi::GL_COLOR_BUFFER_BIT | opengl::ffi::GL_DEPTH_BUFFER_BIT);
 
+        let projection_matrix = glm::perspective(
+            viewport[2] as f32 / viewport[3] as f32,
+            radians(60.0),
+            0.1,
+            100.0,
+        );
+        let view_matrix = glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
+
         for (i, cube) in cubes.iter().enumerate() {
             let model_matrix = glm::translate(&glm::identity(), &cube);
             let model_matrix = glm::rotate(
                 &model_matrix,
                 radians(-70.0 * (i + 1) as f32) * glfw_init.get_time() as f32,
                 &glm::vec3(1.0, 0.5, 0.0),
-            );
-            let view_matrix =
-                glm::translate(&glm::identity::<f32, 4>(), &glm::vec3(0.0, 0.0, -3.0));
-            let projection_matrix = glm::perspective(
-                viewport[2] as f32 / viewport[3] as f32,
-                radians(60.0),
-                0.1,
-                100.0,
             );
 
             program.use_program();
@@ -201,7 +243,6 @@ fn main() {
             opengl::draw_arrays(opengl::ffi::GL_TRIANGLES, 0, 36);
         }
 
-        // Swap front and back buffers
         window.swap_buffers();
     }
 }
