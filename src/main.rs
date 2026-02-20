@@ -1,7 +1,16 @@
-use std::f32::consts::PI as PIF32;
+use std::{cell::Cell, f32::consts::PI as PIF32, rc::Rc};
 
 use glfw::{Action, Context, Key, fail_on_errors};
 use nalgebra_glm as glm;
+
+macro_rules! clone_closure {
+    ($($var:ident),+ => $closure:expr) => {{
+        $(
+            let $var = $var.clone();
+        )+
+        $closure
+    }};
+}
 
 const VERTEX_SHADER_SRC: &'static str = r#"
     #version 330 core
@@ -62,9 +71,10 @@ fn main() {
     window.make_current();
     window.set_key_polling(true);
     window.set_resizable(true);
-    window.set_framebuffer_size_callback(|window, width, height| {
+    window.set_framebuffer_size_callback(|_window, width, height| {
         opengl::gl_viewport(0, 0, width, height);
     });
+    window.set_cursor_mode(glfw::CursorMode::Disabled);
 
     opengl::gl_enable(opengl::ffi::GL_DEPTH_TEST);
 
@@ -160,17 +170,29 @@ fn main() {
         glm::vec3(-1.3_f32, 1.0, -1.5),
     ];
 
+    let camera_sensitivity = 0.3f32;
     let mut camera_pos = glm::vec3::<f32>(0.0, 0.0, 3.0);
-    let camera_front = glm::vec3::<f32>(0.0, 0.0, -1.0);
     let camera_up = glm::vec3::<f32>(0.0, 1.0, 0.0);
 
-    let yaw: f32 = -90.0;
-    let pitch: f32 = 0.0;
+    let last_cursor_pos = Rc::new(Cell::new((0f32, 0f32)));
+    let yaw = Rc::new(Cell::new(-90.0f32));
+    let pitch = Rc::new(Cell::new(0.0f32));
 
-    let direction = glm::vec3::<f32>(radians(yaw).cos(), radians(yaw).sin(), radians(pitch).sin());
+    window.set_cursor_pos_callback(
+        clone_closure!(last_cursor_pos,yaw,pitch => move |_window, x, y| {
+            let x = x as f32;
+            let y = y as f32;
+            let delta_x = (x - last_cursor_pos.get().0) * camera_sensitivity;
+            let delta_y = (last_cursor_pos.get().1 - y) * camera_sensitivity;
+            last_cursor_pos.set((x, y));
+
+            yaw.update(|v| v + delta_x);
+            pitch.update(|v| (v + delta_y).min(89.0).max(-89.0));
+        }),
+    );
 
     let mut last_frame: f32 = 0.0;
-    let mut delta_time: f32 = 0.0;
+    let mut delta_time: f32;
 
     while !window.should_close() {
         let current_time = glfw_init.get_time() as f32;
@@ -179,28 +201,35 @@ fn main() {
 
         let camera_speed: f32 = 10.0 * delta_time;
 
+        let camera_direction = glm::vec3::<f32>(
+            radians(yaw.get()).cos() * radians(pitch.get()).cos(),
+            radians(pitch.get()).sin(),
+            radians(yaw.get()).sin() * radians(pitch.get()).cos(),
+        )
+        .normalize();
+
         glfw_init.poll_events();
         match window.get_key(Key::E) {
             Action::Press => {
-                camera_pos += camera_front * camera_speed;
+                camera_pos += camera_direction * camera_speed;
             }
             _ => {}
         }
         match window.get_key(Key::D) {
             Action::Press => {
-                camera_pos -= camera_front * camera_speed;
+                camera_pos -= camera_direction * camera_speed;
             }
             _ => {}
         }
         match window.get_key(Key::F) {
             Action::Press => {
-                camera_pos += -camera_up.cross(&camera_front).normalize() * camera_speed;
+                camera_pos += -camera_up.cross(&camera_direction).normalize() * camera_speed;
             }
             _ => {}
         }
         match window.get_key(Key::S) {
             Action::Press => {
-                camera_pos -= -camera_up.cross(&camera_front).normalize() * camera_speed;
+                camera_pos -= -camera_up.cross(&camera_direction).normalize() * camera_speed;
             }
             _ => {}
         }
@@ -224,7 +253,7 @@ fn main() {
             0.1,
             100.0,
         );
-        let view_matrix = glm::look_at(&camera_pos, &(camera_pos + camera_front), &camera_up);
+        let view_matrix = glm::look_at(&camera_pos, &(camera_pos + camera_direction), &camera_up);
 
         for (i, cube) in cubes.iter().enumerate() {
             let model_matrix = glm::translate(&glm::identity(), &cube);
